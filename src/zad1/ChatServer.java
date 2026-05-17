@@ -53,6 +53,12 @@ public
     public void stopServer() {
         running = false;
 
+        broadcast("ChatServer: chat closed");
+
+        synchronized (sb){
+            sb.append(now()).append(" ChatServer: chat closed\n");
+        }
+
         try{
             if(serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
@@ -68,14 +74,8 @@ public
             }
         }
 
-        broadcast("ChatServer: chat closed");
-
-        synchronized (sb){
-            sb.append(now()).append(" ChatServer: chat closed\n");
-        }
-
         if(executor != null) {
-            executor.shutdown();
+            executor.shutdownNow();
         }
 
         for (Socket socket : clients.keySet()) {
@@ -131,7 +131,7 @@ public
         if(requestString.startsWith("login ")){
             String id = requestString.substring(6);
             clients.put(clientSocket, id);
-            broadcastString = id + " logged in ";
+            broadcastString = id + " logged in";
         } else if(requestString.startsWith("logout")){
             String id = clients.get(clientSocket);
             broadcastString = id + " logged out";
