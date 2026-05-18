@@ -28,7 +28,7 @@ class ChatClient implements Callable<ChatClient> {
     private Socket socket;
     private Thread thread;
     private PrintWriter out;
-    private boolean running;
+
 
     public ChatClient(String host, int port, String id) {
         this.host = host;
@@ -47,7 +47,7 @@ class ChatClient implements Callable<ChatClient> {
             socket = new Socket();
             socket.connect(new InetSocketAddress(host, port));
             out = new PrintWriter(socket.getOutputStream(), true);
-            running = true;
+
 
             thread = new Thread(this::readData);
             thread.start();
@@ -55,26 +55,25 @@ class ChatClient implements Callable<ChatClient> {
             send("login " + id);
 
         } catch (IOException e) {
-            sb.append("*** ").append(e.toString()).append("\n");
+
         }
     }
 
     public void logout() {
         send("logout");
-        running = false;
+
 
         try {
 
+            if(thread != null) {
+                thread.join(500);
+            }
             if(socket != null && !socket.isClosed()) {
                 socket.close();
-            }
-            if(thread != null) {
-                thread.join();
             }
 
         } catch (InterruptedException | IOException e) {
             Thread.currentThread().interrupt();
-            sb.append("*** ").append(e.toString()).append("\n");
         }
     }
 
@@ -85,7 +84,7 @@ class ChatClient implements Callable<ChatClient> {
     }
 
     public String getChatView(){
-        return "== " + id + " chat view\n" + sb.toString();
+        return sb.toString();
     }
 
     public void readData() {
@@ -93,7 +92,7 @@ class ChatClient implements Callable<ChatClient> {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))) {
 
             String line;
-            while (running && (line = in.readLine()) != null) {
+            while ((line = in.readLine()) != null) {
                 sb.append(line).append("\n");
             }
 
