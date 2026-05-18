@@ -28,7 +28,7 @@ public
     private Thread serverThread;
     private ServerSocket serverSocket;
     private ExecutorService executor;
-    private boolean running = true;
+    private volatile boolean running = true;
 
     private Map<Socket, String> clients = new ConcurrentHashMap<>();
     private Map<Socket, PrintWriter> clientWriters = new ConcurrentHashMap<>();
@@ -104,7 +104,9 @@ public
             }
 
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            if(running) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
