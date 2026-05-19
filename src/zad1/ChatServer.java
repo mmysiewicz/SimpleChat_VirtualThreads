@@ -47,7 +47,8 @@ public
         serverThread = Thread.startVirtualThread(() -> {
             serviceConnections();
         });
-        System.out.println("Server started\n");
+
+        System.out.println("\nServer started");
     }
 
     public void stopServer() {
