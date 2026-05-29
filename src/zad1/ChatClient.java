@@ -61,20 +61,6 @@ class ChatClient implements Callable<ChatClient> {
 
     public void logout() {
         send("logout");
-
-
-        try {
-
-            if(thread != null) {
-                thread.join(500);
-            }
-            if(socket != null && !socket.isClosed()) {
-                socket.close();
-            }
-
-        } catch (InterruptedException | IOException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     public void send(String request) {

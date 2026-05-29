@@ -35,7 +35,7 @@ public
 
     private StringBuilder sb = new StringBuilder();
     private DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSSSSS");
-
+    private Object lock = new Object();
 
     public ChatServer(int port) {
         this.port = port;
@@ -54,10 +54,15 @@ public
     public void stopServer() {
         running = false;
 
-        broadcast("ChatServer: chat closed");
-
-        synchronized (sb){
+        synchronized (lock){
             sb.append(now()).append(" ChatServer: chat closed\n");
+            broadcast("ChatServer: chat closed");
+        }
+
+        try{
+            Thread.sleep(50);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
 
         try{
@@ -65,16 +70,6 @@ public
                 serverSocket.close();
             }
         } catch(IOException ex) {}
-
-        if(serverThread != null) {
-            serverThread.interrupt();
-            try {
-                serverThread.join();
-            } catch(InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-        }
-
 
         if(executor != null) {
             executor.shutdownNow();
@@ -115,40 +110,59 @@ public
         try(BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8));
             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
-            clientWriters.put(clientSocket, out);
             String requestString = "";
             while(running && (requestString = in.readLine()) != null) {
                 requestString = requestString.trim();
                 if(!requestString.isEmpty()) {
-                    processCommand(clientSocket, requestString);
+                    processCommand(clientSocket, requestString, out);
                 }
             }
 
         } catch (IOException e) {
+        } finally {
+            closeConnection(clientSocket);
         }
     }
 
-    public void processCommand(Socket clientSocket, String requestString) throws IOException {
+    public void processCommand(Socket clientSocket, String requestString, PrintWriter out) throws IOException {
         String broadcastString = "";
         boolean doLogout = false;
 
         if(requestString.startsWith("login ")){
             String id = requestString.substring(6);
             clients.put(clientSocket, id);
-            broadcastString = id + " logged in";
+
+
+            synchronized (lock) {
+                clientWriters.put(clientSocket, out);
+                broadcastString = id + " logged in";
+                sb.append(now()).append(" ").append(broadcastString).append("\n");
+                broadcast(broadcastString);
+            }
+
         } else if(requestString.startsWith("logout")){
             String id = clients.get(clientSocket);
-            broadcastString = id + " logged out";
-            doLogout = true;
+
+            if(id != null) {
+                broadcastString = id + " logged out";
+                doLogout = true;
+
+
+                synchronized (lock) {
+                    sb.append(now()).append(" ").append(broadcastString).append("\n");
+                    broadcast(broadcastString);
+                    clientWriters.remove(clientSocket);
+                }
+            }
         } else {
             String id = clients.getOrDefault(clientSocket, "Unknown");
             broadcastString = id + ": " + requestString;
-        }
 
-        synchronized (sb){
-            sb.append(now()).append(" ").append(broadcastString).append("\n");
+            synchronized (lock) {
+                sb.append(now()).append(" ").append(broadcastString).append("\n");
+                broadcast(broadcastString);
+            }
         }
-        broadcast(broadcastString);
 
         if(doLogout){
             closeConnection(clientSocket);
@@ -176,6 +190,8 @@ public
     }
 
     public String getServerLog() {
-        return sb.toString();
+        synchronized (lock){
+            return sb.toString();
+        }
     }
 }
